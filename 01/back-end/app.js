@@ -36,7 +36,7 @@ app.post('/chat', async (req, res) => {
 
         const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    res.json({ reply: reply || 'Sem resposta da IA'})
+        res.json({ reply: reply || 'Sem resposta da IA'})
     } catch (error) {
         console.error('Erro ao conversar com o Gemini:', error.message);
         res.status(500).json({ error: 'Erro ao conectar com a IA Gemini' });
