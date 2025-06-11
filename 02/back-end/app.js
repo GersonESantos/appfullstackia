@@ -5,7 +5,7 @@ require('dotenv').config()
 const app = express()
 const PORT = process.env.PORT || 4000; // Permite configurar a porta via .env
 const API_KEY_GEMINI = process.env.API_KEY_GEMINI;
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY_GEMINI}`; // Modelo gemini-pro é mais comum para chat. Ajuste se gemini-2.0-flash for intencional.
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY_GEMINI}`; // Usando gemini-1.5-flash-latest para compatibilidade com v1beta
 
 if (!API_KEY_GEMINI) {
     console.error("ERRO: A variável de ambiente API_KEY_GEMINI não está definida. Verifique seu arquivo .env.");
