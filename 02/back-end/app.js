@@ -1,42 +1,55 @@
 const express = require('express')
 const cors = require('cors')
 require('dotenv').config()
-console.log(process.env.API_KEY_GEMINI) 
 
 const app = express()
-const PORT = 4000
+const PORT = process.env.PORT || 4000; // Permite configurar a porta via .env
+const API_KEY_GEMINI = process.env.API_KEY_GEMINI;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY_GEMINI}`; // Modelo gemini-pro é mais comum para chat. Ajuste se gemini-2.0-flash for intencional.
 
-app.use(express())
+if (!API_KEY_GEMINI) {
+    console.error("ERRO: A variável de ambiente API_KEY_GEMINI não está definida. Verifique seu arquivo .env.");
+    process.exit(1); // Encerra o processo se a chave não estiver definida
+}
+console.log("Chave da API Gemini carregada.");
+
+// Middlewares
 app.use(cors());
-app.use(express.json())
+app.use(express.json());
+// Se precisar de dados de formulário URL-encoded, descomente a linha abaixo:
+// app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
     res.send('<h2>Welcome to the App.js Server!</h2>');
-    })
+});
 
 app.post('/chat', async (req, res) => {
     const userMessage = req.body.message;
-    if(!userMessage) {
-        return res.status(400).json({ error: 'o input esta vasio' });
+
+    if (!userMessage || userMessage.trim() === "") {
+        return res.status(400).json({ error: "A mensagem do usuário não pode estar vazia." });
     }
-    try{
 
-        const apiKey = process.env.API_KEY_GEMINI;
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-      
-   const response = await fetch(url, {
+    try {
+        const response = await fetch(GEMINI_API_URL, {
             method: 'POST',
-            headers: { "Content-Type": "application/json",},
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                contents: [{parts: [{text: userMessage}]}]
+                contents: [{ parts: [{ text: userMessage }] }]
             }),
-        })
+        });
 
-        const data = await response.json()
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('Erro da API Gemini:', data);
+            const errorMessage = data.error?.message || 'Erro ao comunicar com a API Gemini.';
+            return res.status(response.status).json({ error: errorMessage, details: data.error?.details });
+        }
 
         const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-        res.json({ reply: reply || 'Sem resposta da IA'})
+        res.json({ reply: reply || 'Desculpe, não consegui gerar uma resposta no momento.' });
     } catch (error) {
         console.error('Erro ao conversar com o Gemini:', error.message);
         res.status(500).json({ error: 'Erro ao conectar com a IA Gemini' });
@@ -44,5 +57,5 @@ app.post('/chat', async (req, res) => {
 })
 
 app.listen(PORT, () => {
-    console.log(`Servidor no ar na porta ${PORT}`)
-})       
+    console.log(`Servidor rodando na porta ${PORT}`);
+});

@@ -2,6 +2,8 @@ import axios from 'axios';
 import { useState } from 'react'
 import './App.css';
 
+const API_URL = 'http://localhost:4000/chat';
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -13,30 +15,36 @@ function App() {
     if (!input.trim()) return;
 
     const userMessage = { sender: 'user', text: input };
-    setMessages((prev) => [...prev, userMessage]);
+    // Adiciona a mensagem do usuário e limpa o input imediatamente
+    setMessages((prevMessages) => [...prevMessages, userMessage]);
     setInput('');
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:4000/chat', {
+      const response = await axios.post(API_URL, {
         message: input,
       });
 
       const botMessage = { sender: 'bot', text: response.data.reply };
-      setMessages((prev) => [...prev, botMessage]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { sender: 'bot', text: 'Erro ao se conectar com a IA.' },
+      setMessages((prevMessages) => [...prevMessages, botMessage]);
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+      const errorMessage = error.response?.data?.error || 'Erro ao se conectar com a IA. Tente novamente mais tarde.';
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { sender: 'bot', text: errorMessage },
       ]);
     } finally {
+      // Garante que o loading seja desativado mesmo se o input já foi limpo
       setLoading(false);
     }
 
   }
 
   const handleKeyPress = (e) => {
-    if (e.key === 'enter') sendMessage()
+    // Verifica se a tecla pressionada é 'Enter' e se não há teclas modificadoras (Shift, Ctrl, Alt) pressionadas
+    // para evitar envio ao usar Shift+Enter para nova linha, por exemplo.
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) sendMessage();
   }
 
 
