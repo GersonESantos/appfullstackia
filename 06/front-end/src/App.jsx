@@ -18,14 +18,14 @@ function App() {
     const userMessage = { sender: 'user', text: input };
     setMessages((prev) => [...prev, userMessage]);
     
-    // Limpa o input ANTES de enviar
+    // Salva o input e limpa antes de enviar
     const currentInput = input; 
     setInput('');
     setLoading(true);
 
     try {
       const response = await axios.post('http://localhost:4000/chat', {
-        message: currentInput, // Usa o valor salvo
+        message: currentInput, 
       });
 
       const botMessage = { sender: 'bot', text: response.data.reply };
@@ -42,7 +42,6 @@ function App() {
   }
 
   const handleKeyPress = (e) => {
-    // Verifica se a tecla pressionada é 'Enter' (ou 'enter')
     if (e.key === 'Enter') {
       sendMessage();
     }
@@ -56,7 +55,6 @@ function App() {
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.sender === 'user' ? 'user-message' : 'bot-message'}`}>
             <p className="message-sender">{msg.sender === 'user' ? 'Você' : 'Gemini'}:</p>
-            {/* Renderiza como texto simples. Se quiser renderizar como Markdown, precisará de uma biblioteca como 'react-markdown' */}
             <p className="message-text">{msg.text}</p>
           </div>
         ))}
