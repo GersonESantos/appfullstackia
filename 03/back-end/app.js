@@ -6,9 +6,12 @@ console.log(process.env.API_KEY_GEMINI)
 const app = express()
 const PORT = 4000
 
-app.use(express())
-app.use(cors());
-app.use(express.json())
+app.use(cors({
+    origin: '*', // Permite todas as origens
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json());
 
 app.post('/youtube-details', async (req, res) => {
     const { url: videoUrl } = req.body;
