@@ -1,15 +1,12 @@
-// src/App.js
-
 import axios from 'axios';
 import { useState } from 'react'
-import './App.css'; 
+import './App.css';
 
 function App() {
-
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
 
   const sendMessage = async () => {
 
@@ -17,15 +14,12 @@ function App() {
 
     const userMessage = { sender: 'user', text: input };
     setMessages((prev) => [...prev, userMessage]);
-    
-    // Salva o input e limpa antes de enviar
-    const currentInput = input; 
     setInput('');
     setLoading(true);
 
     try {
       const response = await axios.post('http://localhost:4000/chat', {
-        message: currentInput, 
+        message: input,
       });
 
       const botMessage = { sender: 'bot', text: response.data.reply };
@@ -33,7 +27,7 @@ function App() {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { sender: 'bot', text: 'Erro ao se conectar com a API ou servidor.' },
+        { sender: 'bot', text: 'Erro ao se conectar com a IA.' },
       ]);
     } finally {
       setLoading(false);
@@ -42,10 +36,9 @@ function App() {
   }
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      sendMessage();
-    }
+    if (e.key === 'enter') sendMessage()
   }
+
 
   return (
     <div className="chat-container">
@@ -64,7 +57,7 @@ function App() {
       <div className="input-area">
         <input
           type="text"
-          placeholder='Cole a URL do vídeo ou digite sua pergunta'
+          placeholder='Digite sua pergunta'
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyPress}
