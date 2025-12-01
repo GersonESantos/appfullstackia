@@ -1,13 +1,23 @@
+// app.js
+
 const express = require('express')
 const cors = require('cors')
 require('dotenv').config()
 const { YoutubeTranscript } = require('youtube-transcript');
+const fetch = require('node-fetch'); // Necessário para fetch no Node anterior ao v18
 
-console.log(process.env.API_KEY_GEMINI) 
+// Use a API Key
+const apiKey = process.env.API_KEY_GEMINI;
+
+if (!apiKey) {
+    console.error("ERRO: API_KEY_GEMINI não configurada no arquivo .env");
+    process.exit(1);
+}
 
 const app = express()
 const PORT = 4000
 
+// Middlewares
 app.use(cors());
 app.use(express.json())
 
@@ -16,48 +26,125 @@ app.get('/', (req, res) => {
 })
 
 app.post('/chat', async (req, res) => {
-    let userMessage = req.body.message;
-    if(!userMessage) {
-        return res.status(400).json({ error: 'o input esta vasio' });
+    // A mensagem do usuário deve conter a URL do YouTube
+    const userMessage = req.body.message; 
+    
+    if (!userMessage) {
+        return res.status(400).json({ error: 'O input está vazio.' });
     }
-    try{
+
+    try {
         const youtubeUrlRegex = /(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/[^\s]+/;
         const match = userMessage.match(youtubeUrlRegex);
 
         if (match) {
             const videoUrl = match[0];
-            try {
-                const transcript = await YoutubeTranscript.fetchTranscript(videoUrl);
-                if (!transcript || transcript.length === 0) {
-                     throw new Error('Transcrição vazia ou indisponível.');
-                }
-                const transcriptText = transcript.map(item => item.text).join(' ');
-                userMessage += `\n\nContexto do vídeo (transcrição): ${transcriptText}\n\nResponda com base no vídeo acima.`;
-            } catch (transcriptError) {
-                console.error('Erro ao buscar transcrição:', transcriptError);
-                userMessage += `\n\n(Nota: Não foi possível obter a transcrição do vídeo citado. Responda normalmente.)`;
+            const videoIdMatch = videoUrl.match(/(?<=v=|youtu\.be\/)[\w-]+/);
+            const videoId = videoIdMatch ? videoIdMatch[0] : null;
+
+            if (!videoId) {
+                return res.json({ reply: 'Erro: Não foi possível extrair o ID do vídeo.' });
             }
+
+            let transcriptText = 'Não foi possível obter a transcrição.';
+            
+            try {
+                // 1. OBTENDO A TRANSCRIÇÃO
+                const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+                transcriptText = transcript.map(item => item.text).join(' ');
+            } catch (e) {
+                console.error('AVISO: Erro ao obter transcrição. Prosseguindo com aviso.', e.message);
+                // Permite que o código continue, mas avisa ao Gemini.
+            }
+
+            // 2. EXTRAÇÃO DE METADADOS (Simulação via Fetch no HTML)
+            // Esta parte tenta replicar a extração que fizemos manualmente:
+            const responseHtml = await fetch(videoUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0' }
+            });
+            const html = await responseHtml.text();
+
+            const titleMatch = html.match(/<meta property="og:title" content="(.*?)">/);
+            const title = titleMatch ? titleMatch[1] : "Título não encontrado";
+
+            const authorMatch = html.match(/"author":"(.*?)"/);
+            const author = authorMatch ? authorMatch[1] : "Autor não encontrado";
+
+            const now = new Date();
+            // Formato 'YYYY-MM-DD HH:mm:ss'
+            const formattedDate = now.toISOString().replace(/T/, ' ').slice(0, 19);
+            
+            const imageUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+            // 3. CONSTRUÇÃO DO PROMPT COMPLEXO PARA O GEMINI
+            const promptTemplate = `
+                Você é um assistente de análise de conteúdo de vídeo. Sua tarefa é analisar o vídeo no URL: ${videoUrl}, usando o seguinte Título: "${title}", Autor: "${author}" e a Transcrição:
+                ---
+                ${transcriptText}
+                ---
+                
+                Com base na Transcrição fornecida, gere a saída exatamente no formato Markdown solicitado abaixo. 
+                
+                1. Preencha todos os campos do front matter com os valores fornecidos (Título, Autor, Data, Imagem URL).
+                2. Preencha a seção "Resumo do Conteúdo (Baseado na Transcrição)" detalhando os pontos principais, **incluindo timestamps aproximados entre colchetes** (ex: [00:03:15]) para os tópicos mais relevantes.
+                
+                A SAÍDA DEVE SER APENAS O MARKDOWN COMPLETO:
+                
+                ---
+                title: "${title}"
+                tags:
+                  - Angular
+                  - node
+                status:  "Inicio"
+                prazo: 90
+                categoria: estudo
+                "author:": "[${author}]"
+                "created:": "${formattedDate}"
+                image: ${imageUrl}
+                ---  
+
+                Resumo do Conteúdo (Baseado na Transcrição)
+                #### em markdown
+            `;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+            // 4. CHAMADA FINAL PARA O GEMINI
+            const responseGemini = await fetch(url, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptTemplate }] }]
+                }),
+            });
+
+            const data = await responseGemini.json();
+            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            // Retorna o Markdown completo
+            return res.json({ reply: reply || 'Erro ao gerar resumo pela IA. Verifique a chave da API.' });
+
+        } else {
+            // Se não for URL do YouTube, volta para a conversa normal
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: userMessage }] }]
+                }),
+            })
+
+            const data = await response.json()
+            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            res.json({ reply: reply || 'Sem resposta da IA' })
         }
 
-        const apiKey = process.env.API_KEY_GEMINI;
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { "Content-Type": "application/json",},
-            body: JSON.stringify({
-                contents: [{parts: [{text: userMessage}]}]
-            }),
-        })
-
-        const data = await response.json()
-
-        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        res.json({ reply: reply || 'Sem resposta da IA'})
     } catch (error) {
-        console.error('Erro ao conversar com o Gemini:', error.message);
-        res.status(500).json({ error: 'Erro ao conectar com a IA Gemini' });
+        console.error('Erro geral no servidor:', error);
+        res.status(500).json({ error: 'Erro interno ao processar dados com a IA.' });
     }
 })
 
