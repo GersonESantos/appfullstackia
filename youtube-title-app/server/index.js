@@ -21,7 +21,10 @@ app.post('/api/get-title', async (req, res) => {
     const response = await axios.get(oembedUrl);
     
     if (response.data && response.data.title) {
-      return res.json({ title: response.data.title });
+      return res.json({ 
+        title: response.data.title,
+        channel: response.data.author_name 
+      });
     } else {
       return res.status(404).json({ error: 'Title not found' });
     }

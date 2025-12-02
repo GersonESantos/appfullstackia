@@ -5,6 +5,7 @@ import './App.css'
 function App() {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
+  const [channel, setChannel] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -13,10 +14,12 @@ function App() {
     setLoading(true)
     setError('')
     setTitle('')
+    setChannel('')
 
     try {
       const response = await axios.post('http://localhost:5000/api/get-title', { url })
       setTitle(response.data.title)
+      setChannel(response.data.channel)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to fetch title')
     } finally {
@@ -44,6 +47,12 @@ function App() {
           <div className="result success">
             <h3>Video Title:</h3>
             <p>{title}</p>
+            {channel && (
+              <>
+                <h3 style={{ marginTop: '1rem' }}>Channel:</h3>
+                <p>{channel}</p>
+              </>
+            )}
           </div>
         )}
 
